@@ -3,7 +3,7 @@ name: Deploy Hub to GitHub Pages
 on:
   push:
     branches:
-      - claude/review-constraints-ThJOO
+      - claude/setup-github-pages-gMT10
   workflow_dispatch:
 
 permissions:
