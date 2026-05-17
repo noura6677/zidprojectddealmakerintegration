@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deal Maker AI — منصّة SaaS متصلة</title>
+<style>
+  :root { --bg:#0f1117; --panel:#171a23; --line:#262b38; --txt:#e8eaf0; --mut:#9aa1b2; --brand:#7e3fc2; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,'Segoe UI',Tahoma,sans-serif; background:var(--bg); color:var(--txt); }
+  .topbar { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); background:var(--panel); }
+  .topbar b { font-size:15px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:#3ddc7f; box-shadow:0 0 8px #3ddc7f; }
+  .tag { font-size:12px; color:var(--mut); }
+  .wrap { display:grid; grid-template-columns:1fr 1fr; gap:0; height:calc(100vh - 49px - 150px); }
+  .frame-col { display:flex; flex-direction:column; border-left:1px solid var(--line); }
+  .frame-col:first-child { border-left:none; }
+  .frame-head { padding:8px 14px; font-size:12px; color:var(--mut); background:var(--panel); border-bottom:1px solid var(--line); display:flex; justify-content:space-between; }
+  iframe { flex:1; width:100%; border:0; background:#fff; }
+  .stream { height:150px; border-top:1px solid var(--line); background:var(--panel); padding:10px 16px; overflow:auto; }
+  .stream h4 { margin:0 0 6px; font-size:12px; color:var(--mut); font-weight:600; }
+  .ev { font-size:12px; padding:3px 0; border-bottom:1px dashed var(--line); color:var(--txt); }
+  .ev span { color:var(--brand); font-weight:700; }
+  .ev em { color:var(--mut); font-style:normal; float:left; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="dot"></span>
+    <b>Deal Maker AI</b>
+    <span class="tag">محاكاة SaaS حيّة — اللوحة والمتجر متصلان عبر طبقة ربط Frontend</span>
+    <span class="tag" style="margin-inline-start:auto" id="syncState">بانتظار الاتصال…</span>
+  </div>
+
+  <div class="wrap">
+    <div class="frame-col">
+      <div class="frame-head"><span>لوحة تحكم التاجر</span><span>zidprojectdashboard</span></div>
+      <iframe id="dash" src="https://noura6677.github.io/zidprojectdashboard/sales-assistant"></iframe>
+    </div>
+    <div class="frame-col">
+      <div class="frame-head"><span>متجر نجدية (تجربة العميل)</span><span>newprojectzid</span></div>
+      <iframe id="store" src="https://noura6677.github.io/newprojectzid/"></iframe>
+    </div>
+  </div>
+
+  <div class="stream">
+    <h4>تدفّق الأحداث الحيّ (نشاط العميل → تحليلات اللوحة)</h4>
+    <div id="events"></div>
+  </div>
+
+  <!-- الـ bridge يُحمّل في الـ Hub نفسه لعرض الأحداث -->
+  <script src="../src/bridge.js"></script>
+  <script src="../src/mapping.js"></script>
+  <script>
+  (function () {
+    var B = window.DealMakerBridge;
+    var origin = location.origin;
+    var SAME = (origin === "https://noura6677.github.io");
+
+    // حقن الـ bridge + المحوّل داخل كل iframe بعد تحميله (نفس الـ origin فقط).
+    function inject(id, scripts) {
+      var f = document.getElementById(id);
+      f.addEventListener("load", function () {
+        try {
+          var d = f.contentWindow.document;
+          scripts.forEach(function (src) {
+            var s = d.createElement("script");
+            s.src = new URL(src, location.href).href;
+            d.body.appendChild(s);
+          });
+        } catch (e) {
+          document.getElementById("syncState").textContent =
+            "ℹ️ افتح الـ Hub عبر نفس نطاق الموقعين لتفعيل الحقن (أو استخدم loader/)";
+        }
+      });
+    }
+
+    if (SAME) {
+      inject("dash", ["../src/bridge.js", "../src/mapping.js", "../src/dashboard-adapter.js"]);
+      inject("store", ["../src/bridge.js", "../src/store-adapter.js"]);
+      document.getElementById("syncState").textContent = "🟢 متصل — المزامنة فعّالة";
+    } else {
+      document.getElementById("syncState").textContent =
+        "ℹ️ للمزامنة الكاملة انشر الـ Hub على noura6677.github.io أو استخدم loader/";
+    }
+
+    var box = document.getElementById("events");
+    var names = {
+      store_connected: "اتصل المتجر", add_to_cart: "أضاف للسلة",
+      cart_change: "تغيّر السلة", reward_granted: "فاز بمكافأة",
+      levels_unlocked: "فُتحت المستويات", level_up: "ترقّى مستوى",
+      checkout: "أتمّ الطلب", order: "طلب"
+    };
+    function add(ev) {
+      var d = document.createElement("div");
+      d.className = "ev";
+      var extra = ev.payload && (ev.payload.label || ev.payload.count != null ? (ev.payload.label || ("عدد: " + ev.payload.count)) : "");
+      d.innerHTML = "<em>" + new Date(ev.ts).toLocaleTimeString("ar") + "</em><span>" +
+        (names[ev.type] || ev.type) + "</span> " + (extra || "");
+      box.insertBefore(d, box.firstChild);
+      while (box.children.length > 60) box.removeChild(box.lastChild);
+    }
+    B.getEvents().slice(-15).forEach(add);
+    B.onEvent(add);
+  })();
+  </script>
+</body>
+</html>
